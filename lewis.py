@@ -30,6 +30,7 @@ class justaBot(sc2.BotAI):
         await self.boost_probes()
         await self.boost_council()
         await self.boost_warpgate()
+        await self.build_robo()
 
     async def has_ability(self, ability, unit):
         abilities = await self.get_available_abilities(unit)
@@ -48,7 +49,8 @@ class justaBot(sc2.BotAI):
     async def build_pylons(self):
         if self.supply_left < 7 and not self.already_pending(PYLON):
             nexuses = self.units(NEXUS).ready
-            pos = self.start_location
+            #pos = self.start_location
+            pos = self.start_location.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))
             if nexuses.exists:
                 if self.can_afford(PYLON):
                     await self.build(PYLON, near=pos)
@@ -123,6 +125,13 @@ class justaBot(sc2.BotAI):
                 if self.can_afford(TWILIGHTCOUNCIL) and not self.already_pending(TWILIGHTCOUNCIL):
                     await self.build(TWILIGHTCOUNCIL, near=pylon)
 
+    async def build_robo(self):
+        if self.units(TWILIGHTCOUNCIL).ready.exists:
+            pos = self.start_location.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))
+            if not self.units(ROBOTICSFACILITY):
+                if self.can_afford(ROBOTICSFACILITY) and not self.already_pending(ROBOTICSFACILITY):
+                    await self.build(ROBOTICSFACILITY, near=pos)
+
     async def train_stalker(self):
         for gateway in self.units(GATEWAY).ready.noqueue:
             if self.can_afford(STALKER) and self.units(STALKER).amount <= 2 and self.units(WARPGATE).amount == 0 and self.units(CYBERNETICSCORE).ready:
@@ -141,7 +150,7 @@ class justaBot(sc2.BotAI):
             for s in self.units(STALKER).idle:
                 await self.do(s.attack(self.find_target(self.state)))
 
-        elif self.units(STALKER).amount > 3:
+        elif self.units(STALKER).amount >= 2:
             if len(self.known_enemy_units) > 0:
                 for s in self.units(STALKER).idle:
                     await self.do(s.attack(random.choice(self.known_enemy_units)))
