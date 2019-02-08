@@ -11,10 +11,22 @@ from sc2.ids.buff_id import BuffId
 
 class justaBot(sc2.BotAI):
     def __init__(self):
+        self.actions = []
         self.MAX_WORKERS = 50
         self.GATEWAY_AMT = 0
+        self.WARPGATE_UPGRADE = False
+        self.CHARGE_UPGRADE = False
+        self.ITERATIONS_PER_MINUTE = 165
+    
+    def select_target(self, state):
+        return self.enemy_start_locations[0]
 
-    async def on_step(self, state):
+    def select_mid(self, state):
+        return self.game_info.map_center
+
+    async def on_step(self, iteration):
+        self.iteration = iteration
+        self.game_time = self.iteration / self.ITERATIONS_PER_MINUTE
         await self.distribute_workers()
         await self.build_workers()
         await self.build_pylons()
@@ -23,14 +35,21 @@ class justaBot(sc2.BotAI):
         await self.build_gateway()
         await self.build_cybercore()
         await self.train_stalker()
-        await self.stalker_attack()
+        await self.rush_defense()
         await self.build_twilight()
         await self.handle_upgrades()
         await self.fourgate()
         await self.boost_probes()
         await self.boost_council()
         await self.boost_warpgate()
+        #await self.build_order()
+        await self.warp_new_units()
         await self.build_robo()
+        await self.train_immortal()
+        await self.build_forge()
+        await self.boost_forge()
+        await self.win_game()
+        await self.control_fighting_army()
 
     async def has_ability(self, ability, unit):
         abilities = await self.get_available_abilities(unit)
@@ -48,12 +67,21 @@ class justaBot(sc2.BotAI):
 
     async def build_pylons(self):
         if self.supply_left < 7 and not self.already_pending(PYLON):
-            nexuses = self.units(NEXUS).ready
-            #pos = self.start_location
-            pos = self.start_location.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))
-            if nexuses.exists:
+            nexuses = self.units(NEXUS).ready.random
+            pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))#to2.random_on_distance(4)
+            if self.units(NEXUS).exists:
                 if self.can_afford(PYLON):
                     await self.build(PYLON, near=pos)
+            
+    async def build_order(self):
+        if self.supply_left <= 14 and not self.already_pending(PYLON):
+            nexuses = self.units(NEXUS).ready
+            if self.units(NEXUS).exists and self.can_afford(PYLON):
+                await self.build(PYLON, near=nexuses)
+        if self.supply_left <= 16 and not self.already_pending(GATEWAY):
+            if self.can_afford(GATEWAY) and not self.units(GATEWAY).exists:
+                pylon = self.units(PYLON).ready.random
+                await self.build(GATEWAY, near=pylon)
 
     async def build_gas(self):
         for nexus in self.units(NEXUS).ready:
@@ -64,8 +92,28 @@ class justaBot(sc2.BotAI):
                 worker = self.select_build_worker(empty_geyser.position)
                 if worker is None:
                     break
-                if not self.units(ASSIMILATOR).closer_than(1.0, empty_geyser).exists and self.units(GATEWAY).exists:
+                if not self.units(ASSIMILATOR).closer_than(1.0, empty_geyser).exists and self.units(GATEWAY).exists and self.supply_left <= 16:
                     await self.do(worker.build(ASSIMILATOR, empty_geyser))
+
+    async def warp_new_units(self):
+        for warpgate in self.units(WARPGATE).ready:
+            abilities = await self.get_available_abilities(warpgate)
+            if AbilityId.WARPGATETRAIN_ZEALOT in abilities and self.units(STALKER).amount >= 7:
+                pylon = self.units(PYLON).ready.random
+                pos = pylon.position.to2.random_on_distance(4)
+                placement = await self.find_placement(AbilityId.WARPGATETRAIN_ZEALOT, pos, placement_step=1)
+                if placement is None:
+                    print("Can't Place")
+                    return
+                await self.do(warpgate.warp_in(ZEALOT, placement))
+            if AbilityId.WARPGATETRAIN_STALKER in abilities and self.units(STALKER).amount <= 7:
+                pylon = self.units(PYLON).ready.random
+                pos = pylon.position.to2.random_on_distance(4)
+                placement = await self.find_placement(AbilityId.WARPGATETRAIN_STALKER, pos, placement_step=1)
+                if placement is None:
+                    print("Can't Place")
+                    return
+                await self.do(warpgate.warp_in(STALKER, placement))
 
     async def boost_probes(self):
         nexus = self.units(NEXUS).ready.random
@@ -80,8 +128,9 @@ class justaBot(sc2.BotAI):
             ccore = self.units(CYBERNETICSCORE).ready.first
             if not ccore.has_buff(BuffId.CHRONOBOOSTENERGYCOST) and self.has_ability(RESEARCH_WARPGATE, ccore):
                 abilities = await self.get_available_abilities(nexus)
-                if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
+                if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities and not self.WARPGATE_UPGRADE:
                     await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, ccore))
+                    self.WARPGATE_UPGRADE = True
 
     async def boost_council(self):
         if self.units(TWILIGHTCOUNCIL).exists and self.units(TWILIGHTCOUNCIL).ready:
@@ -89,12 +138,29 @@ class justaBot(sc2.BotAI):
             council = self.units(TWILIGHTCOUNCIL).ready.first
             if not council.has_buff(BuffId.CHRONOBOOSTENERGYCOST) and self.has_ability(RESEARCH_CHARGE, council):
                 abilities = await self.get_available_abilities(nexus)
-                if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
+                if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities and not self.CHARGE_UPGRADE:
                     await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, council))
+                    self.CHARGE_UPGRADE = True
+            #if not council.has_buff(BuffId.CHRONOBOOSTENERGYCOST) and self.has_ability(RESEARCH_BLINK, council):
+            #    abilities = await self.get_available_abilities(nexus)
+            #    if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
+            #        await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, council))
+
+    async def boost_forge(self):
+        if self.units(FORGE).exists and self.units(FORGE).ready and self.CHARGE_UPGRADE == True and self.WARPGATE_UPGRADE == True:
+            nexus = self.units(NEXUS).ready.random
+            forges = self.units(FORGE).ready.random
+            if not forges.has_buff(BuffId.CHRONOBOOSTENERGYCOST):
+                abilities = await self.get_available_abilities(nexus)
+                if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
+                    await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, forges))
 
     async def expand(self):
         if self.units(NEXUS).amount < 2 and self.can_afford(NEXUS):
             await self.expand_now()
+        if self.units(NEXUS).amount <= 2 and self.minerals > 1000:
+            await self.expand_now()
+            self.MAX_WORKERS = 80
 
     async def build_gateway(self):
         if self.units(PYLON).ready.exists:
@@ -108,6 +174,8 @@ class justaBot(sc2.BotAI):
             gatecount = self.units(GATEWAY).amount + self.units(WARPGATE).amount + self.already_pending(GATEWAY)
             if self.units(WARPGATE).ready.exists:
                 if self.can_afford(GATEWAY) and gatecount < 4 and self.units(WARPGATE).amount < 4 and self.units(GATEWAY).amount < 4 and self.already_pending(GATEWAY) < 2:
+                    await self.build(GATEWAY, near=pylon)
+                if self.can_afford(GATEWAY) and gatecount < 8 and self.units(WARPGATE).amount < 8 and self.units(GATEWAY).amount < 8 and self.already_pending(GATEWAY) < 4 and self.minerals >= 800:
                     await self.build(GATEWAY, near=pylon)
 
     async def build_cybercore(self):
@@ -126,11 +194,19 @@ class justaBot(sc2.BotAI):
                     await self.build(TWILIGHTCOUNCIL, near=pylon)
 
     async def build_robo(self):
-        if self.units(TWILIGHTCOUNCIL).ready.exists:
-            pos = self.start_location.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))
+        if self.units(TWILIGHTCOUNCIL).exists:
+            pylon = self.units(PYLON).ready.random
             if not self.units(ROBOTICSFACILITY):
                 if self.can_afford(ROBOTICSFACILITY) and not self.already_pending(ROBOTICSFACILITY):
-                    await self.build(ROBOTICSFACILITY, near=pos)
+                    await self.build(ROBOTICSFACILITY, near=pylon)
+
+    async def train_immortal(self):
+        if self.units(ROBOTICSFACILITY).ready.exists:
+            robo = self.units(ROBOTICSFACILITY).ready.random
+            if self.can_afford(IMMORTAL) and self.units(IMMORTAL).amount < 2 and robo.noqueue:
+                await self.do(robo.train(IMMORTAL))
+            if self.can_afford(IMMORTAL) and self.minerals >= 800 and robo.noqueue:
+                await self.do(robo.train(IMMORTAL))
 
     async def train_stalker(self):
         for gateway in self.units(GATEWAY).ready.noqueue:
@@ -145,21 +221,32 @@ class justaBot(sc2.BotAI):
         else:
             return self.enemy_start_locations[0]
 
-    async def stalker_attack(self):
-        if self.units(STALKER).amount > 15:
-            for s in self.units(STALKER).idle:
-                await self.do(s.attack(self.find_target(self.state)))
-
-        elif self.units(STALKER).amount >= 2:
-            if len(self.known_enemy_units) > 0:
+    async def rush_defense(self):
+        if self.units(STALKER).amount > 1:
+            if len(self.known_enemy_units) > 1:
                 for s in self.units(STALKER).idle:
                     await self.do(s.attack(random.choice(self.known_enemy_units)))
+        if self.units(ZEALOT).amount > 2:
+            if len(self.known_enemy_units) > 1:
+                for s in self.units(ZEALOT).idle:
+                    await self.do(s.attack(random.choice(self.known_enemy_units)))
+        if self.units(IMMORTAL).amount > 0:
+            if len(self.known_enemy_units) > 1:
+                for s in self.units(IMMORTAL).idle:
+                    await self.do(s.attack(random.choice(self.known_enemy_units)))
+
+    async def build_forge(self):
+        if self.units(TWILIGHTCOUNCIL).exists:
+            pylon = self.units(PYLON).ready.random
+            forgecount = self.units(FORGE).amount + self.already_pending(FORGE)
+            if self.can_afford(FORGE) and forgecount <= 1:
+                await self.build(FORGE, near=pylon)
 
     async def handle_upgrades(self):
         if self.units(CYBERNETICSCORE).ready.exists:
             cybercore = self.units(CYBERNETICSCORE).first
             if cybercore.noqueue and self.has_ability(RESEARCH_WARPGATE, cybercore):
-                if self.can_afford(RESEARCH_WARPGATE):
+                if self.can_afford(RESEARCH_WARPGATE) and not self.units(WARPGATE).exists:
                     await self.do(cybercore(RESEARCH_WARPGATE))
 
         if self.units(TWILIGHTCOUNCIL).ready.exists:
@@ -168,12 +255,83 @@ class justaBot(sc2.BotAI):
                 if self.can_afford(RESEARCH_CHARGE):
                     await self.do(twilight(RESEARCH_CHARGE))
                 return
-            elif await self.has_ability(RESEARCH_BLINK, twilight):
-                if self.can_afford(RESEARCH_BLINK) and twilight.noqueue:
-                    await self.do(twilight(RESEARCH_BLINK))
+            #elif await self.has_ability(RESEARCH_BLINK, twilight):
+            #    if self.can_afford(RESEARCH_BLINK) and twilight.noqueue:
+            #        await self.do(twilight(RESEARCH_BLINK))
+        if self.units(FORGE).ready.exists:
+            forge_weapons = self.units(FORGE).ready.random
+            if forge_weapons.noqueue and await self.has_ability(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL1, forge_weapons):
+                if self.can_afford(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL1):
+                    await self.do(forge_weapons(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL1))
+                return
+            if forge_weapons.noqueue and await self.has_ability(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL2, forge_weapons):
+                if self.can_afford(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL2):
+                    await self.do(forge_weapons(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL2))
+                return
+            if forge_weapons.noqueue and await self.has_ability(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL3, forge_weapons):
+                if self.can_afford(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL3):
+                    await self.do(forge_weapons(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL3))
+                return
 
+        if self.units(FORGE).ready.exists:
+            forge_armor = self.units(FORGE).ready.random
+            if forge_armor.noqueue and await self.has_ability(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL1, forge_armor):
+                if self.can_afford(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL1):
+                    await self.do(forge_armor(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL1))
+                return
+            if forge_armor.noqueue and await self.has_ability(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL2, forge_armor):
+                if self.can_afford(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL2):
+                    await self.do(forge_armor(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL2))
+                return
+            if forge_armor.noqueue and await self.has_ability(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL3, forge_armor):
+                if self.can_afford(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL3):
+                    await self.do(forge_armor(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL3))
+                return
+
+    async def win_game(self):
+        army = (self.units(ZEALOT) | self.units(IMMORTAL) | self.units(STALKER)).idle
+        # wait with first attack until we have 5 units
+        if army.amount >= 40:
+            for unit in army:
+                # we dont see anything, go to enemy start location (only works on 2 player maps)
+                if not self.known_enemy_units:
+                    self.actions.append(unit.attack(self.enemy_start_locations[0]))
+                    await self.do_actions(self.actions)
+                    self.actions = []
+                # otherwise, attack closest unit
+                else:
+                    closest_enemy = self.known_enemy_units.closest_to(unit)
+                    self.actions.append(unit.attack(closest_enemy))
+                    await self.do_actions(self.actions)
+                    self.actions = []
+
+    async def control_fighting_army(self):
+        # no need to do anything here if we dont see anything
+        if not self.known_enemy_units:
+            return
+        army = self.units(ZEALOT) | self.units(STALKER) | self.units(IMMORTAL)
+        # create selection of dangerous enemy units.
+        # bunker and uprooted spine dont have weapon, but should be in that selection
+        # also add spinecrawler and cannon if they are not ready yet and have no weapon
+        enemy_fighters = self.known_enemy_units.filter(
+            lambda u: u.can_attack or u.type_id in {BUNKER, SPINECRAWLERUPROOTED, SPINECRAWLER, PHOTONCANNON}
+        )
+        for unit in army:
+            if enemy_fighters:
+                # select enemies in range
+                in_range_enemies = enemy_fighters.in_attack_range_of(unit)
+                if in_range_enemies:
+                    # attack enemy with lowest hp of the ones in range
+                    lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
+                    self.actions.append(unit.attack(lowest_hp))
+                else:
+                    # no unit in range, go to closest
+                    self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
+            else:
+                # no dangerous enemy at all, attack closest of everything
+                self.actions.append(unit.attack(self.known_enemy_units.closest_to(unit)))
 
 run_game(maps.get("(2)AcidPlantLE"), [
     Bot(Race.Protoss, justaBot()),
-    Computer(Race.Terran, Difficulty.Hard)
+    Computer(Race.Terran, Difficulty.VeryHard)
     ], realtime=False)
