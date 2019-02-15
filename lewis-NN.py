@@ -1,13 +1,15 @@
 import sc2
 import random
-from sc2 import run_game, maps, Race, Difficulty, game_info
+from sc2 import run_game, maps, Race, Difficulty, game_info, position, Result
 from sc2.player import Bot, Computer
 from sc2.game_info import *
 from sc2.constants import *
 from sc2.position import *
+from sc2.unit import Unit
 from sc2.ids.buff_id import BuffId
 import cv2
-#import numpy
+import numpy as np
+import time
 
 class justaBot(sc2.BotAI):
     def __init__(self):
@@ -17,12 +19,34 @@ class justaBot(sc2.BotAI):
         self.WARPGATE_UPGRADE = False
         self.CHARGE_UPGRADE = False
         self.ITERATIONS_PER_MINUTE = 165
+        self.pylonCoords = []
+        self.nexusCoords = []
+        self.gateCoords = []
+        self.warpCoords = []
+        self.coreCoords = []
+        self.roboCoords = []
+        self.forgeCoords = []
+        self.twilightCoords = []
     
     def select_target(self, state):
         return self.enemy_start_locations[0]
 
     def select_mid(self, state):
         return self.game_info.map_center
+
+    def on_end(self, game_result):
+        print('--- on_end called ---')
+        print(game_result)
+
+        if game_result == Result.Victory:
+            np.save("test_data/pylonCoords/{}.npy".format(str(int(time.time()))), np.array(self.pylonCoords))
+            np.save("test_data/nexusCoords/{}.npy".format(str(int(time.time()))), np.array(self.nexusCoords))
+            np.save("test_data/gateCoords/{}.npy".format(str(int(time.time()))), np.array(self.gateCoords))
+            np.save("test_data/warpCoords/{}.npy".format(str(int(time.time()))), np.array(self.warpCoords))
+            np.save("test_data/coreCoords/{}.npy".format(str(int(time.time()))), np.array(self.coreCoords))
+            np.save("test_data/roboCoords/{}.npy".format(str(int(time.time()))), np.array(self.roboCoords))
+            np.save("test_data/forgeCoords/{}.npy".format(str(int(time.time()))), np.array(self.forgeCoords))
+            np.save("test_data/twilightCoords/{}.npy".format(str(int(time.time()))), np.array(self.twilightCoords))
 
     async def on_step(self, iteration):
         self.iteration = iteration
@@ -50,6 +74,82 @@ class justaBot(sc2.BotAI):
         await self.boost_forge()
         await self.win_game()
         await self.control_fighting_army()
+        #await self.intel()
+        await self.structure_positions()
+
+    async def structure_positions(self):
+        
+
+        for pylon in self.units(PYLON):
+            if pylon.position not in self.pylonCoords:
+                self.pylonCoords.append(pylon.position)
+            #print (self.pylonCoords)
+        for nexus in self.units(NEXUS):
+            if nexus.position not in self.nexusCoords:
+                self.nexusCoords.append(nexus.position)
+
+        for gateway in self.units(GATEWAY):
+            if gateway.position not in self.gateCoords:
+                self.gateCoords.append(gateway.position)
+
+        for warpgate in self.units(WARPGATE):
+            if warpgate.position not in self.warpCoords:
+                self.warpCoords.append(warpgate.position)
+
+        for cybercore in self.units(CYBERNETICSCORE):
+            if cybercore.position not in self.coreCoords:
+                self.coreCoords.append(cybercore.position)
+
+        for robo in self.units(ROBOTICSFACILITY):
+            if robo.position not in self.roboCoords:
+                self.roboCoords.append(robo.position)
+
+        for forge in self.units(FORGE):
+            if forge.position not in self.forgeCoords:
+                self.forgeCoords.append(forge.position)
+
+        for twilight in self.units(TWILIGHTCOUNCIL):
+            if twilight.position not in self.twilightCoords:
+                self.twilightCoords.append(twilight.position)
+
+    async def intel(self):
+        game_data = np.zeros((self.game_info.map_size[1], self.game_info.map_size[0], 3), np.uint8)
+        
+        draw_dict = {
+                    NEXUS: [15, (0, 255, 0)],
+                    PYLON: [3, (20, 235, 0)],
+                    PROBE: [1, (55, 200, 0)],
+
+                    ASSIMILATOR: [2, (55, 200, 0)],
+                    GATEWAY: [3, (200, 100, 0)],
+                    CYBERNETICSCORE: [3, (150, 150, 0)],
+                    FORGE: [3, (180, 180, 0)],
+                    TWILIGHTCOUNCIL: [3, (200, 200, 0)],
+                    ZEALOT: [2, (255, 100, 0)],
+                    STALKER: [2, (100, 255, 0)],
+                    IMMORTAL: [3, (200, 200, 50)],
+                }
+
+        for unit_type in draw_dict:
+            for unit in self.units(unit_type).ready:
+                pos = unit.position
+                cv2.circle(game_data, (int(pos[0]), int(pos[1])), draw_dict[unit_type][0], draw_dict[unit_type][1], -1)
+
+        for enemy_unit in self.known_enemy_units:
+            if not enemy_unit.is_structure:
+                worker_names = ["probe",
+                                "scv",
+                                "drone"]
+                pos = enemy_unit.position
+                if enemy_unit.name.lower() in worker_names:
+                    cv2.circle(game_data, (int(pos[0]), int(pos[1])), 1, (55, 0, 155), -1)
+                else:
+                    cv2.circle(game_data, (int(pos[0]), int(pos[1])), 3, (50, 0, 215), -1)
+
+        flipped = cv2.flip(game_data, 0)
+        resized = cv2.resize(flipped, dsize=None, fx=2, fy=2)
+        cv2.imshow('Intel', resized)
+        cv2.waitKey(1) 
 
     async def has_ability(self, ability, unit):
         abilities = await self.get_available_abilities(unit)
@@ -67,12 +167,12 @@ class justaBot(sc2.BotAI):
 
     async def build_pylons(self):
         if self.supply_left < 7 and not self.already_pending(PYLON):
-            nexuses = self.units(NEXUS).ready.random
-            pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))#to2.random_on_distance(4)
+            nexuses = self.units(NEXUS).random
+            pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(0,10))#to2.random_on_distance(4)
             if self.units(NEXUS).exists:
                 if self.can_afford(PYLON):
                     await self.build(PYLON, near=pos)
-            
+        
     async def build_order(self):
         if self.supply_left <= 14 and not self.already_pending(PYLON):
             nexuses = self.units(NEXUS).ready
@@ -158,7 +258,7 @@ class justaBot(sc2.BotAI):
     async def expand(self):
         if self.units(NEXUS).amount < 2 and self.can_afford(NEXUS):
             await self.expand_now()
-        if self.units(NEXUS).amount <= 2 and self.minerals > 1000:
+        if self.units(NEXUS).amount <= 2 and self.game_time >= 8.00:
             await self.expand_now()
             self.MAX_WORKERS = 80
 
@@ -294,14 +394,16 @@ class justaBot(sc2.BotAI):
         if army.amount >= 40:
             for unit in army:
                 # we dont see anything, go to enemy start location (only works on 2 player maps)
-                if not self.known_enemy_units:
+                if not self.known_enemy_units:  
                     self.actions.append(unit.attack(self.enemy_start_locations[0]))
                     await self.do_actions(self.actions)
                     self.actions = []
                 # otherwise, attack closest unit
                 else:
-                    closest_enemy = self.known_enemy_units.closest_to(unit)
-                    self.actions.append(unit.attack(closest_enemy))
+                    nexuses = self.units(NEXUS).ready.random
+                    pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))#to2.random_on_distance(4)
+                    #closest_enemy = self.known_enemy_units.closest_to(unit)
+                    self.actions.append(unit.attack(pos))
                     await self.do_actions(self.actions)
                     self.actions = []
 
@@ -333,5 +435,5 @@ class justaBot(sc2.BotAI):
 
 run_game(maps.get("(2)AcidPlantLE"), [
     Bot(Race.Protoss, justaBot()),
-    Computer(Race.Terran, Difficulty.VeryHard)
+    Computer(Race.Zerg, Difficulty.VeryHard)
     ], realtime=False)
