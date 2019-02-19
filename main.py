@@ -1,5 +1,8 @@
 import sc2
 import random
+#import actions
+#import build_orders
+#import gather_test_data
 from sc2 import run_game, maps, Race, Difficulty, game_info, position, Result
 from sc2.player import Bot, Computer
 from sc2.game_info import *
@@ -78,7 +81,10 @@ class lewis(sc2.BotAI):
         await self.structure_positions()
 
     async def structure_positions(self):
-        
+        #expansion_list = []
+        #expansion_list.append(self.expansion_locations.keys())
+
+        #list(self.expansion_locations.keys())
 
         for pylon in self.units(PYLON):
             if pylon.position not in self.pylonCoords:
