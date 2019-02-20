@@ -85,6 +85,12 @@ class lewis(sc2.BotAI):
         #expansion_list.append(self.expansion_locations.keys())
 
         #list(self.expansion_locations.keys())
+        if i > 1:
+            first_base = list(self.expansion_locations.keys())[0]
+            print(first_base)
+            second_base = list(self.expansion_locations.keys())[0]
+            print(second_base)
+            i + 1
 
         for pylon in self.units(PYLON):
             if pylon.position not in self.pylonCoords:
