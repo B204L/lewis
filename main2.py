@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 import time
 
-class lewis(sc2.BotAI):
+class lewis2(sc2.BotAI):
     def __init__(self):
         self.actions = []
         self.MAX_WORKERS = 50
@@ -22,14 +22,6 @@ class lewis(sc2.BotAI):
         self.WARPGATE_UPGRADE = False
         self.CHARGE_UPGRADE = False
         self.ITERATIONS_PER_MINUTE = 165
-        self.pylonCoords = []
-        self.nexusCoords = []
-        self.gateCoords = []
-        self.warpCoords = []
-        self.coreCoords = []
-        self.roboCoords = []
-        self.forgeCoords = []
-        self.twilightCoords = []
         self.top_spawn = False
     
     def select_target(self, state):
@@ -37,30 +29,6 @@ class lewis(sc2.BotAI):
 
     def select_mid(self, state):
         return self.game_info.map_center
-
-    def on_end(self, game_result):
-        print('--- on_end called ---')
-        print(game_result)
-
-        if game_result == Result.Victory and self.top_spawn == True:
-            np.save("test_data/structure_coords/acid_plant/top/pylonCoords/{}.npy".format(str(int(time.time()))), np.array(self.pylonCoords))
-            np.save("test_data/structure_coords/acid_plant/top/nexusCoords/{}.npy".format(str(int(time.time()))), np.array(self.nexusCoords))
-            np.save("test_data/structure_coords/acid_plant/top/gateCoords/{}.npy".format(str(int(time.time()))), np.array(self.gateCoords))
-            np.save("test_data/structure_coords/acid_plant/top/warpCoords/{}.npy".format(str(int(time.time()))), np.array(self.warpCoords))
-            np.save("test_data/structure_coords/acid_plant/top/coreCoords/{}.npy".format(str(int(time.time()))), np.array(self.coreCoords))
-            np.save("test_data/structure_coords/acid_plant/top/roboCoords/{}.npy".format(str(int(time.time()))), np.array(self.roboCoords))
-            np.save("test_data/structure_coords/acid_plant/top/forgeCoords/{}.npy".format(str(int(time.time()))), np.array(self.forgeCoords))
-            np.save("test_data/structure_coords/acid_plant/top/twilightCoords/{}.npy".format(str(int(time.time()))), np.array(self.twilightCoords))
-
-        if game_result == Result.Victory and self.top_spawn == False:
-            np.save("test_data/structure_coords/acid_plant/bottom/pylonCoords/{}.npy".format(str(int(time.time()))), np.array(self.pylonCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/nexusCoords/{}.npy".format(str(int(time.time()))), np.array(self.nexusCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/gateCoords/{}.npy".format(str(int(time.time()))), np.array(self.gateCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/warpCoords/{}.npy".format(str(int(time.time()))), np.array(self.warpCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/coreCoords/{}.npy".format(str(int(time.time()))), np.array(self.coreCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/roboCoords/{}.npy".format(str(int(time.time()))), np.array(self.roboCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/forgeCoords/{}.npy".format(str(int(time.time()))), np.array(self.forgeCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/twilightCoords/{}.npy".format(str(int(time.time()))), np.array(self.twilightCoords))
 
     async def on_step(self, iteration):
         self.iteration = iteration
@@ -89,16 +57,12 @@ class lewis(sc2.BotAI):
         await self.win_game()
         await self.control_fighting_army()
         #await self.intel()
-        await self.structure_positions()
-        await self.starting_pos()
-
-    async def starting_pos(self):
-        if self.start_location == (26.5, 137.5): #this isnt working
-            self.top_spawn = True
-        print (self.top_spawn)
+        #await self.structure_positions()
 
     async def structure_positions(self):
-
+        #first_base = list(self.expansion_locations.keys())[0]
+        #print(first_base)
+        #top (26.5, 80.5)
             for pylon in self.units(PYLON):
                 if pylon.position not in self.pylonCoords:
                     self.pylonCoords.append(pylon.position)
@@ -462,7 +426,7 @@ class lewis(sc2.BotAI):
                 self.actions = []
 
 #run_game(maps.get("(2)AcidPlantLE"), [
-#    Bot(Race.Protoss, lewis()),
+#    Bot(Race.Protoss, lewis2()),
 #    #Computer(Race.Zerg, Difficulty.VeryHard)
-#    Bot(Race.Protoss, lewis2())
+#    Bot(Race.Protoss, lewis())
 #    ], realtime=False)

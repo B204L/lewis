@@ -1,8 +1,5 @@
 import sc2
 import random
-#import actions
-#import build_orders
-#import gather_test_data
 from sc2 import run_game, maps, Race, Difficulty, game_info, position, Result
 from sc2.player import Bot, Computer
 from sc2.game_info import *
@@ -14,7 +11,7 @@ import cv2
 import numpy as np
 import time
 
-class lewis(sc2.BotAI):
+class justaBot(sc2.BotAI):
     def __init__(self):
         self.actions = []
         self.MAX_WORKERS = 50
@@ -30,7 +27,6 @@ class lewis(sc2.BotAI):
         self.roboCoords = []
         self.forgeCoords = []
         self.twilightCoords = []
-        self.top_spawn = False
     
     def select_target(self, state):
         return self.enemy_start_locations[0]
@@ -42,25 +38,15 @@ class lewis(sc2.BotAI):
         print('--- on_end called ---')
         print(game_result)
 
-        if game_result == Result.Victory and self.top_spawn == True:
-            np.save("test_data/structure_coords/acid_plant/top/pylonCoords/{}.npy".format(str(int(time.time()))), np.array(self.pylonCoords))
-            np.save("test_data/structure_coords/acid_plant/top/nexusCoords/{}.npy".format(str(int(time.time()))), np.array(self.nexusCoords))
-            np.save("test_data/structure_coords/acid_plant/top/gateCoords/{}.npy".format(str(int(time.time()))), np.array(self.gateCoords))
-            np.save("test_data/structure_coords/acid_plant/top/warpCoords/{}.npy".format(str(int(time.time()))), np.array(self.warpCoords))
-            np.save("test_data/structure_coords/acid_plant/top/coreCoords/{}.npy".format(str(int(time.time()))), np.array(self.coreCoords))
-            np.save("test_data/structure_coords/acid_plant/top/roboCoords/{}.npy".format(str(int(time.time()))), np.array(self.roboCoords))
-            np.save("test_data/structure_coords/acid_plant/top/forgeCoords/{}.npy".format(str(int(time.time()))), np.array(self.forgeCoords))
-            np.save("test_data/structure_coords/acid_plant/top/twilightCoords/{}.npy".format(str(int(time.time()))), np.array(self.twilightCoords))
-
-        if game_result == Result.Victory and self.top_spawn == False:
-            np.save("test_data/structure_coords/acid_plant/bottom/pylonCoords/{}.npy".format(str(int(time.time()))), np.array(self.pylonCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/nexusCoords/{}.npy".format(str(int(time.time()))), np.array(self.nexusCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/gateCoords/{}.npy".format(str(int(time.time()))), np.array(self.gateCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/warpCoords/{}.npy".format(str(int(time.time()))), np.array(self.warpCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/coreCoords/{}.npy".format(str(int(time.time()))), np.array(self.coreCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/roboCoords/{}.npy".format(str(int(time.time()))), np.array(self.roboCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/forgeCoords/{}.npy".format(str(int(time.time()))), np.array(self.forgeCoords))
-            np.save("test_data/structure_coords/acid_plant/bottom/twilightCoords/{}.npy".format(str(int(time.time()))), np.array(self.twilightCoords))
+        if game_result == Result.Victory:
+            np.save("test_data/pylonCoords/{}.npy".format(str(int(time.time()))), np.array(self.pylonCoords))
+            np.save("test_data/nexusCoords/{}.npy".format(str(int(time.time()))), np.array(self.nexusCoords))
+            np.save("test_data/gateCoords/{}.npy".format(str(int(time.time()))), np.array(self.gateCoords))
+            np.save("test_data/warpCoords/{}.npy".format(str(int(time.time()))), np.array(self.warpCoords))
+            np.save("test_data/coreCoords/{}.npy".format(str(int(time.time()))), np.array(self.coreCoords))
+            np.save("test_data/roboCoords/{}.npy".format(str(int(time.time()))), np.array(self.roboCoords))
+            np.save("test_data/forgeCoords/{}.npy".format(str(int(time.time()))), np.array(self.forgeCoords))
+            np.save("test_data/twilightCoords/{}.npy".format(str(int(time.time()))), np.array(self.twilightCoords))
 
     async def on_step(self, iteration):
         self.iteration = iteration
@@ -90,46 +76,41 @@ class lewis(sc2.BotAI):
         await self.control_fighting_army()
         #await self.intel()
         await self.structure_positions()
-        await self.starting_pos()
-
-    async def starting_pos(self):
-        if self.start_location == (26.5, 137.5): #this isnt working
-            self.top_spawn = True
-        print (self.top_spawn)
 
     async def structure_positions(self):
+        
 
-            for pylon in self.units(PYLON):
-                if pylon.position not in self.pylonCoords:
-                    self.pylonCoords.append(pylon.position)
+        for pylon in self.units(PYLON):
+            if pylon.position not in self.pylonCoords:
+                self.pylonCoords.append(pylon.position)
+            #print (self.pylonCoords)
+        for nexus in self.units(NEXUS):
+            if nexus.position not in self.nexusCoords:
+                self.nexusCoords.append(nexus.position)
 
-            for nexus in self.units(NEXUS):
-                if nexus.position not in self.nexusCoords:
-                    self.nexusCoords.append(nexus.position)
+        for gateway in self.units(GATEWAY):
+            if gateway.position not in self.gateCoords:
+                self.gateCoords.append(gateway.position)
 
-            for gateway in self.units(GATEWAY):
-                if gateway.position not in self.gateCoords:
-                    self.gateCoords.append(gateway.position)
+        for warpgate in self.units(WARPGATE):
+            if warpgate.position not in self.warpCoords:
+                self.warpCoords.append(warpgate.position)
 
-            for warpgate in self.units(WARPGATE):
-                if warpgate.position not in self.warpCoords:
-                    self.warpCoords.append(warpgate.position)
+        for cybercore in self.units(CYBERNETICSCORE):
+            if cybercore.position not in self.coreCoords:
+                self.coreCoords.append(cybercore.position)
 
-            for cybercore in self.units(CYBERNETICSCORE):
-                if cybercore.position not in self.coreCoords:
-                    self.coreCoords.append(cybercore.position)
+        for robo in self.units(ROBOTICSFACILITY):
+            if robo.position not in self.roboCoords:
+                self.roboCoords.append(robo.position)
 
-            for robo in self.units(ROBOTICSFACILITY):
-                if robo.position not in self.roboCoords:
-                    self.roboCoords.append(robo.position)
+        for forge in self.units(FORGE):
+            if forge.position not in self.forgeCoords:
+                self.forgeCoords.append(forge.position)
 
-            for forge in self.units(FORGE):
-                if forge.position not in self.forgeCoords:
-                    self.forgeCoords.append(forge.position)
-
-            for twilight in self.units(TWILIGHTCOUNCIL):
-                if twilight.position not in self.twilightCoords:
-                    self.twilightCoords.append(twilight.position)
+        for twilight in self.units(TWILIGHTCOUNCIL):
+            if twilight.position not in self.twilightCoords:
+                self.twilightCoords.append(twilight.position)
 
     async def intel(self):
         game_data = np.zeros((self.game_info.map_size[1], self.game_info.map_size[0], 3), np.uint8)
@@ -178,9 +159,6 @@ class lewis(sc2.BotAI):
             return False
 
     async def build_workers(self):
-        #print(self.start_location)
-        #print(self.top_spawn)
-        #print(self.player_id)
         if len(self.units(NEXUS))*22 > len(self.units(PROBE)):
             if len(self.units(PROBE)) < self.MAX_WORKERS:
                 for nexus in self.units(NEXUS).ready.noqueue:
@@ -448,21 +426,14 @@ class lewis(sc2.BotAI):
                     # attack enemy with lowest hp of the ones in range
                     lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
                     self.actions.append(unit.attack(lowest_hp))
-                    self.do_actions(self.actions)
-                    self.actions = []
                 else:
                     # no unit in range, go to closest
                     self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
-                    self.do_actions(self.actions)
-                    self.actions = []
             else:
                 # no dangerous enemy at all, attack closest of everything
                 self.actions.append(unit.attack(self.known_enemy_units.closest_to(unit)))
-                self.do_actions(self.actions)
-                self.actions = []
 
-#run_game(maps.get("(2)AcidPlantLE"), [
-#    Bot(Race.Protoss, lewis()),
-#    #Computer(Race.Zerg, Difficulty.VeryHard)
-#    Bot(Race.Protoss, lewis2())
-#    ], realtime=False)
+run_game(maps.get("(2)AcidPlantLE"), [
+    Bot(Race.Protoss, justaBot()),
+    Computer(Race.Zerg, Difficulty.VeryHard)
+    ], realtime=False)
