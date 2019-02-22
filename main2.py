@@ -55,7 +55,7 @@ class lewis2(sc2.BotAI):
         await self.build_forge()
         await self.boost_forge()
         await self.win_game()
-        await self.control_fighting_army()
+        #await self.control_fighting_army()
         #await self.intel()
         #await self.structure_positions()
 

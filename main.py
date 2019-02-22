@@ -87,15 +87,19 @@ class lewis(sc2.BotAI):
         await self.build_forge()
         await self.boost_forge()
         await self.win_game()
-        await self.control_fighting_army()
+        #await self.control_fighting_army()
         #await self.intel()
         await self.structure_positions()
         await self.starting_pos()
+        await self.chat()
+
+    async def chat(self):
+        if self.game_time <= .09:
+            await self._client.chat_send('im lewis 1!', team_only=False)
 
     async def starting_pos(self):
-        if self.start_location == (26.5, 137.5): #this isnt working
+        if self.start_location == (26.5, 137.5):
             self.top_spawn = True
-        print (self.top_spawn)
 
     async def structure_positions(self):
 
@@ -178,9 +182,6 @@ class lewis(sc2.BotAI):
             return False
 
     async def build_workers(self):
-        #print(self.start_location)
-        #print(self.top_spawn)
-        #print(self.player_id)
         if len(self.units(NEXUS))*22 > len(self.units(PROBE)):
             if len(self.units(PROBE)) < self.MAX_WORKERS:
                 for nexus in self.units(NEXUS).ready.noqueue:
