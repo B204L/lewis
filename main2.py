@@ -1,5 +1,6 @@
 import sc2
 import random
+import math
 #import actions
 #import build_orders
 #import gather_test_data
@@ -154,7 +155,9 @@ class lewis2(sc2.BotAI):
     async def build_pylons(self):
         if self.supply_left < 7 and not self.already_pending(PYLON):
             nexuses = self.units(NEXUS).random
-            pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(0,10))#to2.random_on_distance(4)
+            #pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(0,10))#to2.random_on_distance(4)
+            max_difference = math.pi
+            pos = nexuses.position.towards_with_random_angle(nexuses.position, random.randrange(0,15))
             if self.units(NEXUS).exists:
                 if self.can_afford(PYLON):
                     await self.build(PYLON, near=pos)
@@ -387,9 +390,9 @@ class lewis2(sc2.BotAI):
                 # otherwise, attack closest unit
                 else:
                     nexuses = self.units(NEXUS).ready.random
-                    pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))#to2.random_on_distance(4)
-                    #closest_enemy = self.known_enemy_units.closest_to(unit)
-                    self.actions.append(unit.attack(pos))
+                    #pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))#to2.random_on_distance(4)
+                    closest_enemy = self.known_enemy_units.closest_to(unit)
+                    self.actions.append(unit.attack(closest_enemy))
                     await self.do_actions(self.actions)
                     self.actions = []
 

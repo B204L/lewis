@@ -1,5 +1,6 @@
 import sc2
 import random
+import math
 #import actions
 #import build_orders
 #import gather_test_data
@@ -92,6 +93,7 @@ class lewis(sc2.BotAI):
         await self.structure_positions()
         await self.starting_pos()
         await self.chat()
+        #await self.scout()
 
     async def chat(self):
         if self.game_time <= .09:
@@ -191,7 +193,9 @@ class lewis(sc2.BotAI):
     async def build_pylons(self):
         if self.supply_left < 7 and not self.already_pending(PYLON):
             nexuses = self.units(NEXUS).random
-            pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(0,10))#to2.random_on_distance(4)
+            #pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(0,10))#to2.random_on_distance(4)
+            max_difference = math.pi
+            pos = nexuses.position.towards_with_random_angle(nexuses.position, random.randrange(0,15))
             if self.units(NEXUS).exists:
                 if self.can_afford(PYLON):
                     await self.build(PYLON, near=pos)
@@ -264,10 +268,6 @@ class lewis(sc2.BotAI):
                 if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities and not self.CHARGE_UPGRADE:
                     await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, council))
                     self.CHARGE_UPGRADE = True
-            #if not council.has_buff(BuffId.CHRONOBOOSTENERGYCOST) and self.has_ability(RESEARCH_BLINK, council):
-            #    abilities = await self.get_available_abilities(nexus)
-            #    if AbilityId.EFFECT_CHRONOBOOSTENERGYCOST in abilities:
-            #        await self.do(nexus(AbilityId.EFFECT_CHRONOBOOSTENERGYCOST, council))
 
     async def boost_forge(self):
         if self.units(FORGE).exists and self.units(FORGE).ready and self.CHARGE_UPGRADE == True and self.WARPGATE_UPGRADE == True:
@@ -378,9 +378,7 @@ class lewis(sc2.BotAI):
                 if self.can_afford(RESEARCH_CHARGE):
                     await self.do(twilight(RESEARCH_CHARGE))
                 return
-            #elif await self.has_ability(RESEARCH_BLINK, twilight):
-            #    if self.can_afford(RESEARCH_BLINK) and twilight.noqueue:
-            #        await self.do(twilight(RESEARCH_BLINK))
+
         if self.units(FORGE).ready.exists:
             forge_weapons = self.units(FORGE).ready.random
             if forge_weapons.noqueue and await self.has_ability(FORGERESEARCH_PROTOSSGROUNDWEAPONSLEVEL1, forge_weapons):
@@ -411,22 +409,28 @@ class lewis(sc2.BotAI):
                     await self.do(forge_armor(FORGERESEARCH_PROTOSSGROUNDARMORLEVEL3))
                 return
 
+    async def scout(self):
+        scout = self.units(STALKER).idle
+        if self.game_time >= 8.0:
+            for unit in scout:
+                await self.do_actions.unit.attack(self.expansion_locations)
+
     async def win_game(self):
         army = (self.units(ZEALOT) | self.units(IMMORTAL) | self.units(STALKER)).idle
         # wait with first attack until we have 5 units
-        if army.amount >= 40:
+        if army.amount >= 50:
             for unit in army:
                 # we dont see anything, go to enemy start location (only works on 2 player maps)
                 if not self.known_enemy_units:  
-                    self.actions.append(unit.attack(self.enemy_start_locations[0]))
+                    await self.actions.append(unit.attack(self.enemy_start_locations[0]))
                     await self.do_actions(self.actions)
                     self.actions = []
                 # otherwise, attack closest unit
                 else:
                     nexuses = self.units(NEXUS).ready.random
-                    pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))#to2.random_on_distance(4)
-                    #closest_enemy = self.known_enemy_units.closest_to(unit)
-                    self.actions.append(unit.attack(pos))
+                    #pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))#to2.random_on_distance(4)
+                    closest_enemy = self.known_enemy_units.closest_to(unit)
+                    await self.actions.append(unit.attack(closest_enemy))
                     await self.do_actions(self.actions)
                     self.actions = []
 
@@ -462,8 +466,8 @@ class lewis(sc2.BotAI):
                 self.do_actions(self.actions)
                 self.actions = []
 
-#run_game(maps.get("(2)AcidPlantLE"), [
-#    Bot(Race.Protoss, lewis()),
-#    #Computer(Race.Zerg, Difficulty.VeryHard)
-#    Bot(Race.Protoss, lewis2())
-#    ], realtime=False)
+run_game(maps.get("(2)AcidPlantLE"), [
+    Bot(Race.Protoss, lewis()),
+    Computer(Race.Zerg, Difficulty.VeryHard)
+    #Bot(Race.Protoss, lewis2())
+    ], realtime=False)
