@@ -88,12 +88,15 @@ class lewis(sc2.BotAI):
         await self.build_forge()
         await self.boost_forge()
         await self.win_game()
-        #await self.control_fighting_army()
+        await self.control_fighting_army()
         #await self.intel()
         await self.structure_positions()
         await self.starting_pos()
         await self.chat()
         #await self.scout()
+        await self.do_actions(self.actions)
+        # empty list to be ready for new actions in the next frame
+        self.actions = []
 
     async def chat(self):
         if self.game_time <= .09:
@@ -188,7 +191,9 @@ class lewis(sc2.BotAI):
             if len(self.units(PROBE)) < self.MAX_WORKERS:
                 for nexus in self.units(NEXUS).ready.noqueue:
                    if self.can_afford(PROBE):
-                        await self.do(nexus.train(PROBE))
+                        self.actions.append(nexus.train(PROBE))
+                        #await self.do(nexus.train(PROBE))
+        print (self.known_enemy_units)
 
     async def build_pylons(self):
         if self.supply_left < 7 and not self.already_pending(PYLON):
@@ -345,18 +350,21 @@ class lewis(sc2.BotAI):
             return self.enemy_start_locations[0]
 
     async def rush_defense(self):
-        if self.units(STALKER).amount > 1:
-            if len(self.known_enemy_units) > 1:
+        if self.units(STALKER).amount > 0:
+            if len(self.known_enemy_units) >= 1:
                 for s in self.units(STALKER).idle:
-                    await self.do(s.attack(random.choice(self.known_enemy_units)))
-        if self.units(ZEALOT).amount > 2:
-            if len(self.known_enemy_units) > 1:
+                    self.actions.append(s.attack(random.choice(self.known_enemy_units)))
+                    #await self.do(s.attack(random.choice(self.known_enemy_units)))
+        if self.units(ZEALOT).amount > 0:
+            if len(self.known_enemy_units) >= 1:
                 for s in self.units(ZEALOT).idle:
-                    await self.do(s.attack(random.choice(self.known_enemy_units)))
+                    self.actions.append(s.attack(random.choice(self.known_enemy_units)))
+                    #await self.do(s.attack(random.choice(self.known_enemy_units)))
         if self.units(IMMORTAL).amount > 0:
-            if len(self.known_enemy_units) > 1:
+            if len(self.known_enemy_units) >= 1:
                 for s in self.units(IMMORTAL).idle:
-                    await self.do(s.attack(random.choice(self.known_enemy_units)))
+                    self.actions.append(s.attack(random.choice(self.known_enemy_units)))
+                    #await self.do(s.attack(random.choice(self.known_enemy_units)))
 
     async def build_forge(self):
         if self.units(TWILIGHTCOUNCIL).exists:
@@ -422,17 +430,17 @@ class lewis(sc2.BotAI):
             for unit in army:
                 # we dont see anything, go to enemy start location (only works on 2 player maps)
                 if not self.known_enemy_units:  
-                    await self.actions.append(unit.attack(self.enemy_start_locations[0]))
-                    await self.do_actions(self.actions)
-                    self.actions = []
+                    self.actions.append(unit.attack(self.enemy_start_locations[0]))
+                    #self.do_actions(self.actions)
+                    #self.actions = []
                 # otherwise, attack closest unit
                 else:
                     nexuses = self.units(NEXUS).ready.random
                     #pos = nexuses.position.towards_with_random_angle(self.game_info.map_center, random.randrange(5,10))#to2.random_on_distance(4)
                     closest_enemy = self.known_enemy_units.closest_to(unit)
-                    await self.actions.append(unit.attack(closest_enemy))
-                    await self.do_actions(self.actions)
-                    self.actions = []
+                    self.actions.append(unit.attack(closest_enemy))
+                    #self.do_actions(self.actions)
+                    #self.actions = []
 
     async def control_fighting_army(self):
         # no need to do anything here if we dont see anything
@@ -453,21 +461,21 @@ class lewis(sc2.BotAI):
                     # attack enemy with lowest hp of the ones in range
                     lowest_hp = min(in_range_enemies, key=lambda e: e.health + e.shield)
                     self.actions.append(unit.attack(lowest_hp))
-                    self.do_actions(self.actions)
-                    self.actions = []
+                    #self.do_actions(self.actions)
+                    #self.actions = []
                 else:
                     # no unit in range, go to closest
                     self.actions.append(unit.move(enemy_fighters.closest_to(unit)))
-                    self.do_actions(self.actions)
-                    self.actions = []
+                    #self.do_actions(self.actions)
+                    #self.actions = []
             else:
                 # no dangerous enemy at all, attack closest of everything
                 self.actions.append(unit.attack(self.known_enemy_units.closest_to(unit)))
-                self.do_actions(self.actions)
-                self.actions = []
+                #self.do_actions(self.actions)
+                #self.actions = []
 
-run_game(maps.get("(2)AcidPlantLE"), [
-    Bot(Race.Protoss, lewis()),
-    Computer(Race.Zerg, Difficulty.VeryHard)
+#run_game(maps.get("(2)AcidPlantLE"), [
+#    Bot(Race.Protoss, lewis()),
+#    Computer(Race.Zerg, Difficulty.VeryHard)
     #Bot(Race.Protoss, lewis2())
-    ], realtime=False)
+#    ], realtime=False)
